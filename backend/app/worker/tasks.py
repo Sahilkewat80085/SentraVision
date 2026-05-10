@@ -32,10 +32,17 @@ def process_video_task(self, video_id: str, uploaded_path: str):
             return
         video.status = VideoStatus.PROCESSING
         db.commit()
+        print(f"Task started: Video {vid} processing...")
 
         try:
             metadata = get_video_metadata(source)
             frames = extract_frames(source, frame_dir, fps=settings.frame_extraction_fps)
+            
+            if not frames:
+                print("No frames extracted. Failing task.")
+                raise ValueError("Video extraction yielded 0 frames. Check if the source file is a valid video.")
+
+            print(f"Extracted {len(frames)} frames. Running detection...")
             detections = detect_faces_in_frames(
                 frames,
                 fps=float(metadata["fps"]),

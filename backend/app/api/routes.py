@@ -22,8 +22,15 @@ async def upload_video(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
 ):
-    if not file.content_type or not file.content_type.startswith("video/"):
-        raise HTTPException(status_code=400, detail="Only video uploads are supported")
+    print(f"Incoming upload: {file.filename} ({file.content_type})")
+    
+    # Relaxed check: allows common video extensions even if content_type is generic
+    is_video = (file.content_type and file.content_type.startswith("video/")) or \
+               (file.filename and file.filename.lower().endswith(('.mp4', '.mov', '.avi', '.mkv')))
+
+    if not is_video:
+        print(f"Upload rejected: invalid content type {file.content_type}")
+        raise HTTPException(status_code=400, detail="Please upload a valid video file (.mp4, .mov, etc.)")
 
     original_name = file.filename or "uploaded_video.mp4"
     stored_name = f"{uuid.uuid4()}.mp4"

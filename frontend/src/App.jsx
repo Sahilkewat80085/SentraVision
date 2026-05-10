@@ -9,6 +9,7 @@ function App() {
   const [roi, setRoi] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [backendError, setBackendError] = useState("");
 
   const videoUrl = useMemo(() => (videoId ? `/api/video/${videoId}` : ""), [videoId]);
 
@@ -21,6 +22,9 @@ function App() {
         if (s.status === "COMPLETED") {
           const roiData = await getRoi(videoId);
           setRoi(roiData.roi_data || []);
+        }
+        if (s.status === "FAILED") {
+          setBackendError(s.error_message || "Unknown processing error");
         }
       } catch (_) {}
     }, 2500);
@@ -74,6 +78,7 @@ function App() {
                 <p>Video ID: {videoId}</p>
                 <p>Job ID: {jobId}</p>
                 <p>Status: {status}</p>
+                {backendError && <p className="mt-2 text-red-400 font-mono text-xs bg-red-400/10 p-2 rounded">Error: {backendError}</p>}
               </div>
             )}
           </article>

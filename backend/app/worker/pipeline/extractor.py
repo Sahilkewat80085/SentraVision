@@ -32,12 +32,23 @@ def get_video_metadata(video_path: Path) -> dict:
 
         # Parse FPS — stored as a fraction string like "30000/1001"
         fps_str = video_stream.get("r_frame_rate", "30/1")
-        num, den = fps_str.split("/")
-        fps = float(num) / float(den)
+        try:
+            num, den = fps_str.split("/")
+            fps = float(num) / float(den) if float(den) != 0 else 30.0
+        except (ValueError, ZeroDivisionError):
+            fps = 30.0
+
+        if fps <= 0:
+            fps = 30.0
 
         duration = float(probe["format"].get("duration", 0))
         frame_count_str = video_stream.get("nb_frames")
-        frame_count = int(frame_count_str) if frame_count_str else int(fps * duration)
+        try:
+            frame_count = int(frame_count_str) if frame_count_str else int(fps * duration)
+        except (ValueError, TypeError):
+            frame_count = 0
+
+        logger.info(f"Metadata for {video_path.name}: {fps} FPS, {duration}s, {frame_count} frames")
 
         return {
             "fps": round(fps, 3),
