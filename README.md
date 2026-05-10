@@ -42,7 +42,7 @@ Strangers should be able to run this project in under five minutes using Docker.
 
 1. **Clone & Enter**:
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/Sahilkewat80085/SentraVision.git
    cd SentraVision
    ```
 2. **Environment**:
