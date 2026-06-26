@@ -62,6 +62,7 @@ async def upload_video(
     )
     video.celery_task_id = task.id
     video.status = VideoStatus.PROCESSING
+    await db.commit()
 
     return VideoUploadResponse(
         video_id=video.id,
