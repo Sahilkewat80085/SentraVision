@@ -59,7 +59,8 @@ def get_video_metadata(video_path: Path) -> dict:
             "codec": video_stream.get("codec_name", "unknown"),
         }
     except ffmpeg.Error as exc:
-        raise FrameExtractionError(f"ffprobe failed: {exc.stderr.decode()}") from exc
+        err_msg = exc.stderr.decode() if exc.stderr else "Unknown ffprobe error"
+        raise FrameExtractionError(f"ffprobe failed: {err_msg}") from exc
 
 
 def extract_frames(
@@ -97,8 +98,9 @@ def extract_frames(
     try:
         ffmpeg.run(stream, overwrite_output=True, quiet=True)
     except ffmpeg.Error as exc:
+        err_msg = exc.stderr.decode() if exc.stderr else "Unknown ffmpeg error"
         raise FrameExtractionError(
-            f"Frame extraction failed: {exc.stderr.decode()}"
+            f"Frame extraction failed: {err_msg}"
         ) from exc
 
     frames = sorted(output_dir.glob("frame_*.jpg"))
