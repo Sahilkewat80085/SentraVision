@@ -6,15 +6,17 @@ from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database import get_db
 from app.models.roi import ROIFrame
 from app.models.video import Video, VideoStatus
 from app.schemas.roi import ROIFrameSchema, ROIResponse
 from app.schemas.video import VideoStatusResponse, VideoUploadResponse
-from app.services.storage import save_upload
+from app.services.storage import save_upload, FileSizeLimitExceeded
 from app.worker.celery_app import celery_app
 
 router = APIRouter()
+settings = get_settings()
 
 
 @router.post("/upload", response_model=VideoUploadResponse)
@@ -34,7 +36,17 @@ async def upload_video(
 
     original_name = file.filename or "uploaded_video.mp4"
     stored_name = f"{uuid.uuid4()}.mp4"
-    stored_path = await save_upload(file=file, target_filename=stored_name)
+    try:
+        stored_path = await save_upload(
+            file=file,
+            target_filename=stored_name,
+            max_size_bytes=settings.max_upload_size_mb * 1024 * 1024,
+        )
+    except FileSizeLimitExceeded as exc:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds maximum size of {settings.max_upload_size_mb}MB."
+        ) from exc
 
     video = Video(
         original_filename=original_name,
