@@ -89,34 +89,49 @@ async def stream_processed_video(video_id: uuid.UUID, db: AsyncSession = Depends
 
 
 @router.get("/roi/{video_id}", response_model=ROIResponse)
-async def get_roi(video_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_roi(
+    video_id: uuid.UUID,
+    page: int = 1,
+    page_size: int = 50,
+    db: AsyncSession = Depends(get_db),
+):
+    if page < 1:
+        page = 1
+    if page_size < 1:
+        page_size = 1
+    elif page_size > 100:
+        page_size = 100
+
     video_result = await db.execute(select(Video).where(Video.id == video_id))
     video = video_result.scalar_one_or_none()
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
 
+    total_count = await db.scalar(
+        select(func.count(ROIFrame.id)).where(ROIFrame.video_id == video_id)
+    ) or 0
+
+    offset = (page - 1) * page_size
     rows = (
         await db.execute(
             select(ROIFrame)
             .where(ROIFrame.video_id == video_id)
             .order_by(ROIFrame.frame_number.asc())
+            .offset(offset)
+            .limit(page_size)
         )
     ).scalars().all()
 
     total_frames = int(video.frame_count or 0)
-    frames_with_faces = len(rows)
-    total_count = await db.scalar(
-        select(func.count(ROIFrame.id)).where(ROIFrame.video_id == video_id)
-    )
 
     return ROIResponse(
         video_id=video_id,
         total_frames=total_frames,
-        frames_with_faces=frames_with_faces,
+        frames_with_faces=total_count,
         roi_data=[ROIFrameSchema.model_validate(r) for r in rows],
-        page=1,
-        page_size=max(1, len(rows)),
-        total_count=total_count or 0,
+        page=page,
+        page_size=page_size,
+        total_count=total_count,
     )
 
 
