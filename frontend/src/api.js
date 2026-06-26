@@ -19,7 +19,9 @@ export async function getStatus(videoId) {
   return data;
 }
 
-export async function getRoi(videoId) {
-  const { data } = await api.get(`/roi/${videoId}`);
+export async function getRoi(videoId, page = 1, pageSize = 50) {
+  const { data } = await api.get(`/roi/${videoId}`, {
+    params: { page, page_size: pageSize }
+  });
   return data;
 }
