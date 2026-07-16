@@ -18,8 +18,8 @@ from app.database import Base
 
 class ROIFrame(Base):
     """
-    Stores per-frame face detection bounding box data.
-    One row per detected face per frame.
+    Stores per-frame Region of Interest (ROI) face detection bounding box data.
+    Maps to the 'roi_frames' database table.
     """
     __tablename__ = "roi_frames"
 
@@ -33,27 +33,27 @@ class ROIFrame(Base):
     )
 
     frame_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    timestamp: Mapped[float] = mapped_column(Float, nullable=False)  # seconds
+    timestamp: Mapped[float] = mapped_column(Float, nullable=False)  # Offset in seconds from video start
 
-    # Bounding box — axis-aligned minimal bounding box
+    # Bounding box coordinates and dimensions (in pixels relative to original resolution)
     x: Mapped[int] = mapped_column(Integer, nullable=False)
     y: Mapped[int] = mapped_column(Integer, nullable=False)
     width: Mapped[int] = mapped_column(Integer, nullable=False)
     height: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    # Detection confidence score [0.0, 1.0]
+    # Detection confidence score [0.0, 1.0] from detection engine
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    # Relationship
+    # Relationship back to Video parent
     video: Mapped["Video"] = relationship(  # noqa: F821
         "Video", back_populates="roi_frames"
     )
 
-    # Composite index for efficient temporal queries
+    # Composite index for rapid query execution during playback and pagination
     __table_args__ = (
         Index("ix_roi_frames_video_frame", "video_id", "frame_number"),
         Index("ix_roi_frames_video_timestamp", "video_id", "timestamp"),
@@ -61,6 +61,6 @@ class ROIFrame(Base):
 
     def __repr__(self) -> str:
         return (
-            f"<ROIFrame video={self.video_id} frame={self.frame_number} "
-            f"bbox=({self.x},{self.y},{self.width},{self.height})>"
+            f"<ROIFrame id={self.id} video_id={self.video_id} frame={self.frame_number} "
+            f"bbox=({self.x},{self.y},{self.width},{self.height}) confidence={self.confidence}>"
         )
