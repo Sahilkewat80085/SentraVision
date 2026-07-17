@@ -6,12 +6,13 @@ Uses MediaPipe FaceDetection + PIL for image I/O.
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from typing import List, Optional
 
 import mediapipe as mp
 import numpy as np
 from PIL import Image
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("sentravision.pipeline.detector")
 
 # MediaPipe models — initialized once per worker process
 _mp_face_detection = mp.solutions.face_detection
@@ -19,19 +20,24 @@ _mp_face_detection = mp.solutions.face_detection
 
 @dataclass
 class BoundingBox:
-    """Axis-aligned minimal bounding box in absolute pixel coordinates."""
-    x: int        # Left edge
-    y: int        # Top edge
-    width: int    # Box width
-    height: int   # Box height
+    """
+    Axis-aligned minimal bounding box in absolute pixel coordinates.
+    """
+    x: int             # Left edge
+    y: int             # Top edge
+    width: int         # Box width
+    height: int        # Box height
     confidence: float  # Detection confidence [0.0, 1.0]
 
 
 @dataclass
 class DetectionResult:
+    """
+    Result of face detection task for a single frame.
+    """
     frame_number: int
     timestamp: float
-    bounding_box: BoundingBox | None  # None if no face detected
+    bounding_box: Optional[BoundingBox]  # None if no face detected
 
 
 class FaceDetector:
@@ -51,7 +57,8 @@ class FaceDetector:
             min_detection_confidence=min_detection_confidence,
         )
         logger.info(
-            f"FaceDetector initialized (min_confidence={min_detection_confidence})"
+            "FaceDetector initialized successfully (min_confidence=%f)",
+            min_detection_confidence
         )
 
     def detect(self, frame_path: Path, frame_number: int, fps: float) -> DetectionResult:
@@ -68,10 +75,11 @@ class FaceDetector:
 
         try:
             # PIL-based image loading — no OpenCV
-            img_pil = Image.open(frame_path).convert("RGB")
-            img_array = np.array(img_pil, dtype=np.uint8)
+            with Image.open(frame_path) as img_pil:
+                img_rgb = img_pil.convert("RGB")
+                img_array = np.array(img_rgb, dtype=np.uint8)
+            
             h, w = img_array.shape[:2]
-
             results = self._detector.process(img_array)
 
             if not results.detections:
@@ -105,7 +113,7 @@ class FaceDetector:
             )
 
         except Exception as exc:
-            logger.warning(f"Detection failed for frame {frame_number}: {exc}")
+            logger.warning("Detection failed for frame %d: %s", frame_number, exc, exc_info=True)
             return DetectionResult(
                 frame_number=frame_number,
                 timestamp=timestamp,
@@ -113,6 +121,9 @@ class FaceDetector:
             )
 
     def close(self) -> None:
+        """
+        Closes the underlying MediaPipe detector resource.
+        """
         self._detector.close()
 
     def __enter__(self):
@@ -123,25 +134,27 @@ class FaceDetector:
 
 
 def detect_faces_in_frames(
-    frame_paths: list[Path],
+    frame_paths: List[Path],
     fps: float,
     min_confidence: float = 0.5,
-) -> list[DetectionResult]:
+) -> List[DetectionResult]:
     """
     Run face detection across all extracted frames.
     Returns a list of DetectionResult objects (one per frame).
     """
-    results: list[DetectionResult] = []
+    results: List[DetectionResult] = []
     with FaceDetector(min_detection_confidence=min_confidence) as detector:
         for idx, frame_path in enumerate(frame_paths):
             result = detector.detect(frame_path, frame_number=idx + 1, fps=fps)
             results.append(result)
 
             if (idx + 1) % 50 == 0:
-                logger.info(f"Processed {idx + 1}/{len(frame_paths)} frames")
+                logger.info("Processed %d/%d frames", idx + 1, len(frame_paths))
 
     faces_found = sum(1 for r in results if r.bounding_box is not None)
     logger.info(
-        f"Detection complete: {faces_found}/{len(results)} frames contain a face"
+        "Detection complete: %d/%d frames contain a face",
+        faces_found,
+        len(results)
     )
     return results
