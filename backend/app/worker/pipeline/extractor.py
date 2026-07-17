@@ -2,22 +2,24 @@
 SentraVision — Frame Extractor
 Uses ffmpeg-python (NOT OpenCV) to extract individual frames from a video.
 """
-import json
 import logging
 import shutil
-import subprocess
 from pathlib import Path
+from typing import Dict, List, Union
 
 import ffmpeg
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("sentravision.pipeline.extractor")
 
 
 class FrameExtractionError(Exception):
+    """
+    Custom exception raised when video metadata extraction or frame splitting fails.
+    """
     pass
 
 
-def get_video_metadata(video_path: Path) -> dict:
+def get_video_metadata(video_path: Path) -> Dict[str, Union[int, float, str]]:
     """
     Probe the video file to extract metadata (fps, duration, dimensions).
     Uses ffprobe (bundled with ffmpeg-python).
@@ -48,7 +50,13 @@ def get_video_metadata(video_path: Path) -> dict:
         except (ValueError, TypeError):
             frame_count = 0
 
-        logger.info(f"Metadata for {video_path.name}: {fps} FPS, {duration}s, {frame_count} frames")
+        logger.info(
+            "Metadata for %s: %.2f FPS, %.2fs, %d frames",
+            video_path.name,
+            fps,
+            duration,
+            frame_count
+        )
 
         return {
             "fps": round(fps, 3),
@@ -67,7 +75,7 @@ def extract_frames(
     video_path: Path,
     output_dir: Path,
     fps: int = 0,
-) -> list[Path]:
+) -> List[Path]:
     """
     Extract frames from a video using ffmpeg-python.
 
@@ -79,9 +87,12 @@ def extract_frames(
     Returns:
         Sorted list of extracted frame file paths.
     """
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_pattern = str(output_dir / "frame_%06d.jpg")
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as exc:
+        raise FrameExtractionError(f"Failed to create extraction folder: {exc}") from exc
 
+    output_pattern = str(output_dir / "frame_%06d.jpg")
     stream = ffmpeg.input(str(video_path))
 
     if fps and fps > 0:
@@ -104,12 +115,18 @@ def extract_frames(
         ) from exc
 
     frames = sorted(output_dir.glob("frame_*.jpg"))
-    logger.info(f"Extracted {len(frames)} frames from {video_path.name}")
+    logger.info("Extracted %d frames from %s", len(frames), video_path.name)
     return frames
 
 
 def cleanup_frames(frames_dir: Path) -> None:
-    """Remove temporary frame directory."""
+    """
+    Remove temporary frame directory.
+    """
     if frames_dir.exists():
-        shutil.rmtree(frames_dir)
-        logger.debug(f"Cleaned up frames directory: {frames_dir}")
+        try:
+            shutil.rmtree(frames_dir)
+            logger.debug("Cleaned up frames directory: %s", frames_dir)
+        except Exception as exc:
+            logger.error("Failed to clean up frames directory: %s", frames_dir, exc_info=exc)
+
