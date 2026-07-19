@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: "Segoe UI", "Inter", sans-serif;
+:root {
+  /* Common color tokens and theme definitions */
+  --font-primary: "Segoe UI", "Inter", -apple-system, sans-serif;
+  --transition-smooth: all 0.2s ease-in-out;
 }
+
+body {
+  font-family: var(--font-primary);
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
