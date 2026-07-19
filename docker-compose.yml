@@ -4,12 +4,15 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: sentravision-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-sentravision}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sentravision_secret}
       POSTGRES_DB: ${POSTGRES_DB:-sentravision}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sentravision-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sentravision -d sentravision"]
       interval: 5s
@@ -19,12 +22,16 @@ services:
   redis:
     image: redis:7-alpine
     container_name: sentravision-redis
+    restart: unless-stopped
     command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks:
+      - sentravision-net
 
   backend:
     build:
       context: ./backend
     container_name: sentravision-backend
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-sentravision}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sentravision_secret}
@@ -37,6 +44,8 @@ services:
       DEBUG: "false"
     volumes:
       - video_data:/data
+    networks:
+      - sentravision-net
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,6 +56,7 @@ services:
     build:
       context: ./backend
     container_name: sentravision-worker
+    restart: unless-stopped
     command: celery -A app.worker.celery_app:celery_app worker -l info --concurrency=2
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-sentravision}
@@ -60,6 +70,8 @@ services:
       DEBUG: "false"
     volumes:
       - video_data:/data
+    networks:
+      - sentravision-net
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,16 +82,22 @@ services:
     build:
       context: ./frontend
     container_name: sentravision-frontend
+    restart: unless-stopped
+    networks:
+      - sentravision-net
     depends_on:
       - backend
 
   nginx:
     image: nginx:1.27-alpine
     container_name: sentravision-nginx
+    restart: unless-stopped
     ports:
       - "8080:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - sentravision-net
     depends_on:
       - frontend
       - backend
@@ -87,3 +105,8 @@ services:
 volumes:
   postgres_data:
   video_data:
+
+networks:
+  sentravision-net:
+    driver: bridge
+
