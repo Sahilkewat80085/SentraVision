@@ -36,6 +36,36 @@ graph TD
 
 ---
 
+## 📂 Project Structure
+
+Below is the layout of core configuration and code packages in the repository:
+
+```
+SentraVision/
+├── backend/
+│   ├── app/
+│   │   ├── api/          # FastAPI routers and route handlers
+│   │   ├── models/       # SQLAlchemy declarative models
+│   │   ├── schemas/      # Pydantic schemas for data validation
+│   │   ├── services/     # File storage utilities and logic helpers
+│   │   ├── worker/       # Celery task definitions and processing pipelines
+│   │   └── main.py       # API entrypoint and lifespan lifecycle configuration
+│   ├── Dockerfile
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx       # React application dashboard shell
+│   │   ├── api.js        # Axios instance configured with interceptors
+│   │   └── main.jsx      # DOM entrypoint
+│   ├── Dockerfile
+│   └── package.json
+├── nginx/
+│   └── default.conf      # Reverse-proxy configuration with security headers
+└── docker-compose.yml    # Service orchestration (PostgreSQL, Redis, Celery, Nginx)
+```
+
+---
+
 ## 🚀 Setup & Documentation
 ### "The 5-Minute Run Guarantee"
 Strangers should be able to run this project in under five minutes using Docker. 
@@ -114,7 +144,8 @@ The git history of this project tells a story of iterative improvement. Each fea
 ---
 
 ### Key Files for Review
-- [backend/app/worker/tasks.py](backend/app/worker/tasks.py): Core orchestration.
-- [backend/app/worker/pipeline/detector.py](backend/app/worker/pipeline/detector.py): MediaPipe implementation.
-- [backend/app/worker/pipeline/renderer.py](backend/app/worker/pipeline/renderer.py): FFmpeg rendering logic.
-- [frontend/src/App.jsx](frontend/src/App.jsx): Interactive status-driven UI.
+- [tasks.py](file:///c:/Users/kkewa/OneDrive/Desktop/Projects/SentraVision/backend/app/worker/tasks.py): Core background job orchestration.
+- [detector.py](file:///c:/Users/kkewa/OneDrive/Desktop/Projects/SentraVision/backend/app/worker/pipeline/detector.py): MediaPipe face detector interface.
+- [renderer.py](file:///c:/Users/kkewa/OneDrive/Desktop/Projects/SentraVision/backend/app/worker/pipeline/renderer.py): FFmpeg video rebuilding logic.
+- [App.jsx](file:///c:/Users/kkewa/OneDrive/Desktop/Projects/SentraVision/frontend/src/App.jsx): Status-driven interactive frontend dashboard.
+
