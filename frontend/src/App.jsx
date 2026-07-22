@@ -1,6 +1,84 @@
 import { useEffect, useMemo, useState } from "react";
 import { getRoi, getStatus, uploadVideo } from "./api";
 
+// ── Shared UI Icons ──────────────────────────────────────────────────
+const UploadIcon = () => (
+  <svg className="h-10 w-10 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+  </svg>
+);
+
+const DetectionIcon = () => (
+  <svg className="mx-auto h-8 w-8 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+  </svg>
+);
+
+// ── Subcomponents ────────────────────────────────────────────────────
+function VideoPreview({ status, videoUrl, backendError, videoId, jobId }) {
+  return (
+    <article className="md:col-span-2 rounded-2xl border border-slate-800/80 bg-slate-900/30 backdrop-blur-xl p-6 shadow-2xl flex flex-col justify-between">
+      <div>
+        <h2 className="text-lg font-bold tracking-tight text-slate-200 mb-4">Processed Video</h2>
+        <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800/60 flex items-center justify-center">
+          {status === "COMPLETED" ? (
+            <video className="w-full h-full object-contain" controls src={videoUrl} />
+          ) : (
+            <div className="p-8 text-center max-w-sm">
+              {status === "PROCESSING" ? (
+                <div className="flex flex-col items-center gap-4">
+                  <span className="animate-spin h-10 w-10 border-4 border-brand-500 border-t-transparent rounded-full" />
+                  <p className="text-sm font-semibold text-brand-500 tracking-wide">Processing video...</p>
+                  <p className="text-xs text-slate-400">MediaPipe is mapping face frames</p>
+                </div>
+              ) : status === "PENDING" ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="h-2 w-24 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-brand-500 animate-pulse w-2/3" />
+                  </div>
+                  <p className="text-xs text-slate-400">Waiting for worker pick-up...</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3">
+                  <UploadIcon />
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Your processed output video containing drawn bounding boxes will display here once uploaded.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {videoId && (
+        <div className="mt-6 border-t border-slate-900 pt-5 text-xs text-slate-400 font-mono grid grid-cols-2 gap-4">
+          <div>
+            <span className="text-slate-500">Video ID</span>
+            <p className="text-slate-300 font-semibold truncate mt-0.5">{videoId}</p>
+          </div>
+          <div>
+            <span className="text-slate-500">Celery Task ID</span>
+            <p className="text-slate-300 font-semibold truncate mt-0.5">{jobId}</p>
+          </div>
+          <div>
+            <span className="text-slate-500">Processing Status</span>
+            <p className={`font-semibold mt-0.5 ${status === "COMPLETED" ? "text-brand-500" : status === "FAILED" ? "text-red-400" : "text-amber-400"}`}>
+              {status}
+            </p>
+          </div>
+          {backendError && (
+            <div className="col-span-2 mt-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 break-words font-sans">
+              <strong>Error:</strong> {backendError}
+            </div>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
+
 function App() {
   const [file, setFile] = useState(null);
   const [videoId, setVideoId] = useState("");
@@ -27,7 +105,9 @@ function App() {
         if (s.status === "FAILED") {
           setBackendError(s.error_message || "Unknown processing error");
         }
-      } catch (_) {}
+      } catch (err) {
+        console.error("Poller status update failure:", err);
+      }
     }, 2500);
     return () => clearInterval(timer);
   }, [videoId, status]);
@@ -68,7 +148,7 @@ function App() {
       setJobId(data.job_id);
       setStatus(data.status);
     } catch (err) {
-      setError(err?.response?.data?.detail || "Upload failed");
+      setError(err?.message || "Upload failed");
     } finally {
       setLoading(false);
     }
@@ -153,68 +233,14 @@ function App() {
 
         {/* Main Workspace */}
         <section className="mt-8 grid gap-8 md:grid-cols-3">
-          {/* Video Stream Card */}
-          <article className="md:col-span-2 rounded-2xl border border-slate-800/80 bg-slate-900/30 backdrop-blur-xl p-6 shadow-2xl flex flex-col justify-between">
-            <div>
-              <h2 className="text-lg font-bold tracking-tight text-slate-200 mb-4">Processed Video</h2>
-              <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800/60 flex items-center justify-center">
-                {status === "COMPLETED" ? (
-                  <video className="w-full h-full object-contain" controls src={videoUrl} />
-                ) : (
-                  <div className="p-8 text-center max-w-sm">
-                    {status === "PROCESSING" ? (
-                      <div className="flex flex-col items-center gap-4">
-                        <span className="animate-spin h-10 w-10 border-4 border-brand-500 border-t-transparent rounded-full" />
-                        <p className="text-sm font-semibold text-brand-500 tracking-wide">Processing video...</p>
-                        <p className="text-xs text-slate-400">MediaPipe is mapping face frames</p>
-                      </div>
-                    ) : status === "PENDING" ? (
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="h-2 w-24 bg-slate-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-brand-500 animate-pulse w-2/3" />
-                        </div>
-                        <p className="text-xs text-slate-400">Waiting for worker pick-up...</p>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-3">
-                        <svg className="h-10 w-10 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                        <p className="text-xs text-slate-500 leading-relaxed">
-                          Your processed output video containing drawn bounding boxes will display here once uploaded.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Video Metadata / Status Details */}
-            {videoId && (
-              <div className="mt-6 border-t border-slate-900 pt-5 text-xs text-slate-400 font-mono grid grid-cols-2 gap-4">
-                <div>
-                  <span className="text-slate-500">Video ID</span>
-                  <p className="text-slate-300 font-semibold truncate mt-0.5">{videoId}</p>
-                </div>
-                <div>
-                  <span className="text-slate-500">Celery Task ID</span>
-                  <p className="text-slate-300 font-semibold truncate mt-0.5">{jobId}</p>
-                </div>
-                <div>
-                  <span className="text-slate-500">Processing Status</span>
-                  <p className={`font-semibold mt-0.5 ${status === "COMPLETED" ? "text-brand-500" : status === "FAILED" ? "text-red-400" : "text-amber-400"}`}>
-                    {status}
-                  </p>
-                </div>
-                {backendError && (
-                  <div className="col-span-2 mt-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 break-words font-sans">
-                    <strong>Error:</strong> {backendError}
-                  </div>
-                )}
-              </div>
-            )}
-          </article>
+          {/* Video Preview Card */}
+          <VideoPreview
+            status={status}
+            videoUrl={videoUrl}
+            backendError={backendError}
+            videoId={videoId}
+            jobId={jobId}
+          />
 
           {/* ROI Metadata Card */}
           <article className="rounded-2xl border border-slate-800/80 bg-slate-900/30 backdrop-blur-xl p-6 shadow-2xl flex flex-col justify-between min-h-[460px]">
@@ -224,10 +250,7 @@ function App() {
               <div className="space-y-3">
                 {roi.length === 0 ? (
                   <div className="text-center py-12">
-                    <svg className="mx-auto h-8 w-8 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
+                    <DetectionIcon />
                     <p className="mt-3 text-xs text-slate-500">
                       No coordinates extracted yet. Start a job to run face detection.
                     </p>
@@ -291,3 +314,4 @@ function App() {
 }
 
 export default App;
+
